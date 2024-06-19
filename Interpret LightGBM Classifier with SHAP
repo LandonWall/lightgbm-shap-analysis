@@ -1,0 +1,664 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "id": "968a6ae7",
+   "metadata": {
+    "papermill": {
+     "duration": 0.004934,
+     "end_time": "2024-06-19T02:07:34.941405",
+     "exception": false,
+     "start_time": "2024-06-19T02:07:34.936471",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "# Interpret LightGBM Classifier with SHAP: Spaceship Titanic Dataset\n",
+    "\n",
+    "## Table of Contents\n",
+    "\n",
+    "1. [Data Preparation](#data-preparation)\n",
+    "   - [Import Data and Modules](#import-data-and-modules)\n",
+    "   - [Data Cleaning](#data-cleaning)\n",
+    "   - [Feature Engineering](#feature-engineering)\n",
+    "   - [Exploratory Data Analysis (EDA)](#exploratory-data-analysis)\n",
+    "2. [Modeling](#modeling)\n",
+    "   - [Data Preprocessing for Modeling](#data-preprocessing-for-modeling)\n",
+    "   - [Model Training](#model-training)\n",
+    "   - [Model Evaluation](#model-evaluation)\n",
+    "3. [Interpretability](#interpretability)\n",
+    "   - [SHAP Analysis](#shap-analysis)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "99dca13e",
+   "metadata": {
+    "papermill": {
+     "duration": 0.00419,
+     "end_time": "2024-06-19T02:07:34.950386",
+     "exception": false,
+     "start_time": "2024-06-19T02:07:34.946196",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "# Data Preparation\n",
+    "<a id=\"data-preparation\"></a>"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "782afde2",
+   "metadata": {
+    "papermill": {
+     "duration": 0.004288,
+     "end_time": "2024-06-19T02:07:34.959168",
+     "exception": false,
+     "start_time": "2024-06-19T02:07:34.954880",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "### Import Data and Modules\n",
+    "<a id=\"import-data-and-modules\"></a>"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "id": "11486bf6",
+   "metadata": {
+    "_cell_guid": "b1076dfc-b9ad-4769-8c92-a6c4dae69d19",
+    "_uuid": "8f2839f25d086af736a60e9eeb907d3b93b6e0e5",
+    "execution": {
+     "iopub.execute_input": "2024-06-19T02:07:34.969854Z",
+     "iopub.status.busy": "2024-06-19T02:07:34.969467Z",
+     "iopub.status.idle": "2024-06-19T02:07:44.595232Z",
+     "shell.execute_reply": "2024-06-19T02:07:44.594010Z"
+    },
+    "papermill": {
+     "duration": 9.634237,
+     "end_time": "2024-06-19T02:07:44.597933",
+     "exception": false,
+     "start_time": "2024-06-19T02:07:34.963696",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "# base packages\n",
+    "import pandas as pd\n",
+    "import numpy as np\n",
+    "import matplotlib.pyplot as plt\n",
+    "\n",
+    "# modeling and evaluation\n",
+    "import lightgbm as lgb\n",
+    "from sklearn.metrics import accuracy_score, classification_report\n",
+    "from sklearn.model_selection import train_test_split\n",
+    "from sklearn.preprocessing import LabelEncoder\n",
+    "import shap\n",
+    "import os"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "id": "e9088c8b",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2024-06-19T02:07:44.609151Z",
+     "iopub.status.busy": "2024-06-19T02:07:44.608555Z",
+     "iopub.status.idle": "2024-06-19T02:07:44.748857Z",
+     "shell.execute_reply": "2024-06-19T02:07:44.747706Z"
+    },
+    "papermill": {
+     "duration": 0.148665,
+     "end_time": "2024-06-19T02:07:44.751356",
+     "exception": false,
+     "start_time": "2024-06-19T02:07:44.602691",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": [
+    "train = pd.read_csv('/kaggle/input/spaceship-titanic/train.csv')\n",
+    "test = pd.read_csv('/kaggle/input/spaceship-titanic/train.csv')\n",
+    "df = train.merge(test)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 3,
+   "id": "7834c99e",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2024-06-19T02:07:44.762800Z",
+     "iopub.status.busy": "2024-06-19T02:07:44.762408Z",
+     "iopub.status.idle": "2024-06-19T02:07:44.786416Z",
+     "shell.execute_reply": "2024-06-19T02:07:44.785353Z"
+    },
+    "papermill": {
+     "duration": 0.032199,
+     "end_time": "2024-06-19T02:07:44.788661",
+     "exception": false,
+     "start_time": "2024-06-19T02:07:44.756462",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<div>\n",
+       "<style scoped>\n",
+       "    .dataframe tbody tr th:only-of-type {\n",
+       "        vertical-align: middle;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe tbody tr th {\n",
+       "        vertical-align: top;\n",
+       "    }\n",
+       "\n",
+       "    .dataframe thead th {\n",
+       "        text-align: right;\n",
+       "    }\n",
+       "</style>\n",
+       "<table border=\"1\" class=\"dataframe\">\n",
+       "  <thead>\n",
+       "    <tr style=\"text-align: right;\">\n",
+       "      <th></th>\n",
+       "      <th>PassengerId</th>\n",
+       "      <th>HomePlanet</th>\n",
+       "      <th>CryoSleep</th>\n",
+       "      <th>Cabin</th>\n",
+       "      <th>Destination</th>\n",
+       "      <th>Age</th>\n",
+       "      <th>VIP</th>\n",
+       "      <th>RoomService</th>\n",
+       "      <th>FoodCourt</th>\n",
+       "      <th>ShoppingMall</th>\n",
+       "      <th>Spa</th>\n",
+       "      <th>VRDeck</th>\n",
+       "      <th>Name</th>\n",
+       "      <th>Transported</th>\n",
+       "    </tr>\n",
+       "  </thead>\n",
+       "  <tbody>\n",
+       "    <tr>\n",
+       "      <th>0</th>\n",
+       "      <td>0001_01</td>\n",
+       "      <td>Europa</td>\n",
+       "      <td>False</td>\n",
+       "      <td>B/0/P</td>\n",
+       "      <td>TRAPPIST-1e</td>\n",
+       "      <td>39.0</td>\n",
+       "      <td>False</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>Maham Ofracculy</td>\n",
+       "      <td>False</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>1</th>\n",
+       "      <td>0002_01</td>\n",
+       "      <td>Earth</td>\n",
+       "      <td>False</td>\n",
+       "      <td>F/0/S</td>\n",
+       "      <td>TRAPPIST-1e</td>\n",
+       "      <td>24.0</td>\n",
+       "      <td>False</td>\n",
+       "      <td>109.0</td>\n",
+       "      <td>9.0</td>\n",
+       "      <td>25.0</td>\n",
+       "      <td>549.0</td>\n",
+       "      <td>44.0</td>\n",
+       "      <td>Juanna Vines</td>\n",
+       "      <td>True</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>2</th>\n",
+       "      <td>0003_01</td>\n",
+       "      <td>Europa</td>\n",
+       "      <td>False</td>\n",
+       "      <td>A/0/S</td>\n",
+       "      <td>TRAPPIST-1e</td>\n",
+       "      <td>58.0</td>\n",
+       "      <td>True</td>\n",
+       "      <td>43.0</td>\n",
+       "      <td>3576.0</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>6715.0</td>\n",
+       "      <td>49.0</td>\n",
+       "      <td>Altark Susent</td>\n",
+       "      <td>False</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>3</th>\n",
+       "      <td>0003_02</td>\n",
+       "      <td>Europa</td>\n",
+       "      <td>False</td>\n",
+       "      <td>A/0/S</td>\n",
+       "      <td>TRAPPIST-1e</td>\n",
+       "      <td>33.0</td>\n",
+       "      <td>False</td>\n",
+       "      <td>0.0</td>\n",
+       "      <td>1283.0</td>\n",
+       "      <td>371.0</td>\n",
+       "      <td>3329.0</td>\n",
+       "      <td>193.0</td>\n",
+       "      <td>Solam Susent</td>\n",
+       "      <td>False</td>\n",
+       "    </tr>\n",
+       "    <tr>\n",
+       "      <th>4</th>\n",
+       "      <td>0004_01</td>\n",
+       "      <td>Earth</td>\n",
+       "      <td>False</td>\n",
+       "      <td>F/1/S</td>\n",
+       "      <td>TRAPPIST-1e</td>\n",
+       "      <td>16.0</td>\n",
+       "      <td>False</td>\n",
+       "      <td>303.0</td>\n",
+       "      <td>70.0</td>\n",
+       "      <td>151.0</td>\n",
+       "      <td>565.0</td>\n",
+       "      <td>2.0</td>\n",
+       "      <td>Willy Santantines</td>\n",
+       "      <td>True</td>\n",
+       "    </tr>\n",
+       "  </tbody>\n",
+       "</table>\n",
+       "</div>"
+      ],
+      "text/plain": [
+       "  PassengerId HomePlanet CryoSleep  Cabin  Destination   Age    VIP  \\\n",
+       "0     0001_01     Europa     False  B/0/P  TRAPPIST-1e  39.0  False   \n",
+       "1     0002_01      Earth     False  F/0/S  TRAPPIST-1e  24.0  False   \n",
+       "2     0003_01     Europa     False  A/0/S  TRAPPIST-1e  58.0   True   \n",
+       "3     0003_02     Europa     False  A/0/S  TRAPPIST-1e  33.0  False   \n",
+       "4     0004_01      Earth     False  F/1/S  TRAPPIST-1e  16.0  False   \n",
+       "\n",
+       "   RoomService  FoodCourt  ShoppingMall     Spa  VRDeck               Name  \\\n",
+       "0          0.0        0.0           0.0     0.0     0.0    Maham Ofracculy   \n",
+       "1        109.0        9.0          25.0   549.0    44.0       Juanna Vines   \n",
+       "2         43.0     3576.0           0.0  6715.0    49.0      Altark Susent   \n",
+       "3          0.0     1283.0         371.0  3329.0   193.0       Solam Susent   \n",
+       "4        303.0       70.0         151.0   565.0     2.0  Willy Santantines   \n",
+       "\n",
+       "   Transported  \n",
+       "0        False  \n",
+       "1         True  \n",
+       "2        False  \n",
+       "3        False  \n",
+       "4         True  "
+      ]
+     },
+     "execution_count": 3,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "df.head()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "3e23feab",
+   "metadata": {
+    "papermill": {
+     "duration": 0.004481,
+     "end_time": "2024-06-19T02:07:44.798017",
+     "exception": false,
+     "start_time": "2024-06-19T02:07:44.793536",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "### Data Cleaning\n",
+    "<a id=\"data-cleaning\"></a>"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 4,
+   "id": "b98e86a8",
+   "metadata": {
+    "execution": {
+     "iopub.execute_input": "2024-06-19T02:07:44.809201Z",
+     "iopub.status.busy": "2024-06-19T02:07:44.808767Z",
+     "iopub.status.idle": "2024-06-19T02:07:44.815422Z",
+     "shell.execute_reply": "2024-06-19T02:07:44.814353Z"
+    },
+    "papermill": {
+     "duration": 0.015079,
+     "end_time": "2024-06-19T02:07:44.817815",
+     "exception": false,
+     "start_time": "2024-06-19T02:07:44.802736",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "(8693, 14)"
+      ]
+     },
+     "execution_count": 4,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "df.shape"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "2d32fd5e",
+   "metadata": {
+    "papermill": {
+     "duration": 0.004645,
+     "end_time": "2024-06-19T02:07:44.827607",
+     "exception": false,
+     "start_time": "2024-06-19T02:07:44.822962",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "### Feature Engineering\n",
+    "<a id=\"feature-engineering\"></a>"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "db93bdd0",
+   "metadata": {
+    "papermill": {
+     "duration": 0.004516,
+     "end_time": "2024-06-19T02:07:44.836990",
+     "exception": false,
+     "start_time": "2024-06-19T02:07:44.832474",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "markdown",
+   "id": "00a050ad",
+   "metadata": {
+    "papermill": {
+     "duration": 0.005009,
+     "end_time": "2024-06-19T02:07:44.847354",
+     "exception": false,
+     "start_time": "2024-06-19T02:07:44.842345",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "### Exploratory Data Analysis (EDA)\n",
+    "<a id=\"exploratory-data-analysis\"></a>"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "d1d714b8",
+   "metadata": {
+    "papermill": {
+     "duration": 0.004614,
+     "end_time": "2024-06-19T02:07:44.856901",
+     "exception": false,
+     "start_time": "2024-06-19T02:07:44.852287",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "markdown",
+   "id": "11d5a80d",
+   "metadata": {
+    "papermill": {
+     "duration": 0.004586,
+     "end_time": "2024-06-19T02:07:44.866544",
+     "exception": false,
+     "start_time": "2024-06-19T02:07:44.861958",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "# Modeling\n",
+    "<a id=\"modeling\"></a>"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "937f1282",
+   "metadata": {
+    "papermill": {
+     "duration": 0.004536,
+     "end_time": "2024-06-19T02:07:44.875941",
+     "exception": false,
+     "start_time": "2024-06-19T02:07:44.871405",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "### Data Preprocessing for Modeling\n",
+    "<a id=\"data-preprocessing-for-modeling\"></a>"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "f94d2a97",
+   "metadata": {
+    "papermill": {
+     "duration": 0.004558,
+     "end_time": "2024-06-19T02:07:44.885290",
+     "exception": false,
+     "start_time": "2024-06-19T02:07:44.880732",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "markdown",
+   "id": "288ac39b",
+   "metadata": {
+    "papermill": {
+     "duration": 0.004684,
+     "end_time": "2024-06-19T02:07:44.895297",
+     "exception": false,
+     "start_time": "2024-06-19T02:07:44.890613",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "### Model Training\n",
+    "<a id=\"model-training\"></a>"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "93d3b6fe",
+   "metadata": {
+    "papermill": {
+     "duration": 0.004532,
+     "end_time": "2024-06-19T02:07:44.904739",
+     "exception": false,
+     "start_time": "2024-06-19T02:07:44.900207",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "markdown",
+   "id": "fd2948e1",
+   "metadata": {
+    "papermill": {
+     "duration": 0.00454,
+     "end_time": "2024-06-19T02:07:44.914052",
+     "exception": false,
+     "start_time": "2024-06-19T02:07:44.909512",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "### Model Evaluation\n",
+    "<a id=\"model-evaluation\"></a>"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "d35184df",
+   "metadata": {
+    "papermill": {
+     "duration": 0.004535,
+     "end_time": "2024-06-19T02:07:44.924290",
+     "exception": false,
+     "start_time": "2024-06-19T02:07:44.919755",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "markdown",
+   "id": "a2b90b3f",
+   "metadata": {
+    "papermill": {
+     "duration": 0.004703,
+     "end_time": "2024-06-19T02:07:44.933805",
+     "exception": false,
+     "start_time": "2024-06-19T02:07:44.929102",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "# Interpretability\n",
+    "<a id=\"interpretability\"></a>"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "2079ae37",
+   "metadata": {
+    "papermill": {
+     "duration": 0.004551,
+     "end_time": "2024-06-19T02:07:44.943223",
+     "exception": false,
+     "start_time": "2024-06-19T02:07:44.938672",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "source": [
+    "### SHAP Analysis\n",
+    "<a id=\"shap-analysis\"></a>"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "cefe371b",
+   "metadata": {
+    "papermill": {
+     "duration": 0.004483,
+     "end_time": "2024-06-19T02:07:44.952634",
+     "exception": false,
+     "start_time": "2024-06-19T02:07:44.948151",
+     "status": "completed"
+    },
+    "tags": []
+   },
+   "outputs": [],
+   "source": []
+  }
+ ],
+ "metadata": {
+  "kaggle": {
+   "accelerator": "none",
+   "dataSources": [
+    {
+     "databundleVersionId": 3220602,
+     "sourceId": 34377,
+     "sourceType": "competition"
+    }
+   ],
+   "dockerImageVersionId": 30732,
+   "isGpuEnabled": false,
+   "isInternetEnabled": true,
+   "language": "python",
+   "sourceType": "notebook"
+  },
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.10.13"
+  },
+  "papermill": {
+   "default_parameters": {},
+   "duration": 15.098401,
+   "end_time": "2024-06-19T02:07:47.177853",
+   "environment_variables": {},
+   "exception": null,
+   "input_path": "__notebook__.ipynb",
+   "output_path": "__notebook__.ipynb",
+   "parameters": {},
+   "start_time": "2024-06-19T02:07:32.079452",
+   "version": "2.5.0"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
